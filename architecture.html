@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ogood — Proposed Architecture on Cloudflare</title>
+    <meta name="description" content="Implementation architecture for hosting Ogood volunteer federation nodes on Cloudflare Workers, D1, Queues, and R2.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%23f97316'/><path d='M30 55 L45 70 L72 35' stroke='white' stroke-width='8' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+    <style>
+        :root { --orange: #f97316; --orange-dark: #ea580c; --orange-light: #fed7aa; --slate: #0f172a; --slate-light: #334155; --gray: #64748b; --gray-light: #f1f5f9; --white: #ffffff; --green: #22c55e; --blue: #3b82f6; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: var(--slate); line-height: 1.7; background: var(--white); }
+        .container { max-width: 820px; margin: 0 auto; padding: 0 24px; }
+        nav { position: sticky; top: 0; z-index: 100; background: rgba(255,255,255,0.9); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(0,0,0,0.06); }
+        .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+        .logo { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; color: var(--slate); text-decoration: none; }
+        .logo-mark { width: 32px; height: 32px; border-radius: 50%; background: var(--orange); display: flex; align-items: center; justify-content: center; }
+        .logo-mark svg { width: 20px; height: 20px; }
+        .nav-back { color: var(--orange); text-decoration: none; font-size: 14px; font-weight: 600; }
+        .hero { padding: 60px 0 40px; background: linear-gradient(180deg, #fff7ed 0%, #ffffff 100%); }
+        .hero h1 { font-size: clamp(28px, 4vw, 40px); font-weight: 800; letter-spacing: -0.02em; margin-bottom: 12px; }
+        .hero .subtitle { color: var(--gray); font-size: 17px; margin-bottom: 16px; }
+        .hero .meta { display: flex; gap: 16px; flex-wrap: wrap; font-size: 14px; color: var(--gray); }
+        .hero .meta span { background: var(--gray-light); padding: 4px 12px; border-radius: 100px; }
+        .content { padding: 40px 0 80px; }
+        .content h2 { font-size: 26px; font-weight: 700; margin-top: 48px; margin-bottom: 16px; letter-spacing: -0.01em; }
+        .content h2:first-child { margin-top: 0; }
+        .content h3 { font-size: 20px; font-weight: 700; margin-top: 32px; margin-bottom: 12px; }
+        .content p { margin-bottom: 16px; color: var(--slate-light); }
+        .content ul, .content ol { margin-bottom: 16px; padding-left: 24px; }
+        .content li { margin-bottom: 8px; color: var(--slate-light); }
+        .content strong { color: var(--slate); }
+        .content a { color: var(--orange); text-decoration: none; font-weight: 600; }
+        .content a:hover { text-decoration: underline; }
+        .content code { background: var(--gray-light); padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', Monaco, Consolas, monospace; font-size: 14px; }
+        .content pre { background: var(--slate); color: #e2e8f0; padding: 24px; border-radius: 12px; overflow-x: auto; margin-bottom: 20px; font-family: 'SF Mono', Monaco, Consolas, monospace; font-size: 13px; line-height: 1.6; }
+        .content pre code { background: none; padding: 0; color: inherit; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 14px; }
+        th { text-align: left; padding: 10px 14px; background: var(--gray-light); font-weight: 700; border-bottom: 2px solid #e2e8f0; }
+        td { padding: 10px 14px; border-bottom: 1px solid #e2e8f0; color: var(--slate-light); }
+        td:first-child { font-weight: 600; color: var(--slate); }
+        .callout { background: var(--orange-light); border-left: 4px solid var(--orange); padding: 16px 20px; border-radius: 0 8px 8px 0; margin-bottom: 24px; }
+        .callout p { margin-bottom: 0; color: var(--slate); }
+        .endpoint-list { background: var(--gray-light); border-radius: 12px; padding: 20px 24px; margin-bottom: 24px; }
+        .endpoint-list li { font-family: 'SF Mono', Monaco, Consolas, monospace; font-size: 14px; }
+        .phase-badge { display: inline-block; background: var(--orange); color: white; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 100px; margin-right: 8px; }
+        footer { padding: 32px 0; background: var(--slate); color: #94a3b8; text-align: center; font-size: 14px; }
+        footer a { color: #94a3b8; text-decoration: none; }
+        footer a:hover { color: var(--orange); }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="container nav-inner">
+        <a href="/" class="logo">
+            <span class="logo-mark"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 13l4 4L19 7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            Ogood
+        </a>
+        <a href="/" class="nav-back">← Back to home</a>
+    </div>
+</nav>
+
+<section class="hero">
+    <div class="container">
+        <h1>Proposed Architecture on Cloudflare</h1>
+        <p class="subtitle">Hosting Ogood volunteer federation nodes on Cloudflare's developer platform</p>
+        <div class="meta">
+            <span>📅 Prepared 21 October 2026</span>
+            <span>📋 Implementation handover</span>
+            <span>⚠️ Not yet deployed</span>
+        </div>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container">
+
+        <div class="callout">
+            <p><strong>Summary:</strong> Ogood can run as one custom Worker on the apex domain <code>ogood.network</code>, serving both the website and ActivityPub, with D1 as the source of truth, Queues as the delivery pipe and R2 for media. Cloudflare has no graph database, and Ogood does not need one to start: model the links explicitly in D1 and add a graph layer only if multi-hop trust queries become a real workload.</p>
+        </div>
+
+        <p style="font-size: 14px; color: var(--gray); font-style: italic;">Status: this note has not been sent to any Cloudflare worker or agent, and nothing has been deployed.</p>
+
+        <h2>What Ogood does</h2>
+        <ul>
+            <li>Federates volunteering opportunities from the providers who own them. The provider controls the source; Ogood stores a discovery index that points back to it.</li>
+            <li><span class="phase-badge">Phase 1</span>Scraped imports: Ogood lists public opportunities from provider websites as provisional entries.</li>
+            <li><span class="phase-badge">Phase 2</span>Provider adapters: providers push changes (signed webhooks) or publish a normalised pull feed that Ogood polls.</li>
+            <li><span class="phase-badge">Phase 3</span>First-class provider servers: providers run their own ActivityPub actors; Ogood follows them, migrates their accounts and rebuilds the catalog from their outboxes.</li>
+            <li>Discovery by provider, location and date.</li>
+            <li>History: every event keeps a permanent link, with photos, check-ins and attestations. Past and cancelled events stay visible and are clearly separate from upcoming ones.</li>
+            <li>Later: two-party signed completion claims between a volunteer and a provider.</li>
+        </ul>
+
+        <h2>Recommended stack</h2>
+        <table>
+            <thead>
+                <tr><th>Need</th><th>Product</th><th>MVP</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Website, API, ActivityPub endpoints</td><td>Workers (+ Static Assets)</td><td>Core</td></tr>
+                <tr><td>Catalog, delivery ledger, inbox log</td><td>D1</td><td>Core</td></tr>
+                <tr><td>Keyword search</td><td>D1 FTS5</td><td>Core</td></tr>
+                <tr><td>Location and date search</td><td>D1 indexed columns</td><td>Core</td></tr>
+                <tr><td>Outbound delivery, inbound processing, import jobs</td><td>Queues</td><td>Core</td></tr>
+                <tr><td>Photos and logos</td><td>R2</td><td>When photos arrive</td></tr>
+                <tr><td>Hot caches (remote actor keys, WebFinger)</td><td>KV</td><td>Optional</td></tr>
+                <tr><td>Per-host rate limiting, ordered per-actor work</td><td>Durable Objects</td><td>Optional</td></tr>
+                <tr><td>Semantic search</td><td>Vectorize + Workers AI embeddings</td><td>Later</td></tr>
+            </tbody>
+        </table>
+        <p><strong>What this replaces from the Mastodon-style stack:</strong> no PostgreSQL, no Redis, no Elasticsearch, no Linux VMs.</p>
+
+        <h2>Things to know before building</h2>
+        <ul>
+            <li><strong>D1 is SQLite, not PostgreSQL.</strong> There is no JSONB type and no PostGIS. D1 does support the SQLite JSON extension, FTS5 full-text search and math functions. Store raw ActivityPub and signed-claim payloads as JSON text columns and index the relational fields beside them.</li>
+            <li><strong>Vectorize is not a search engine replacement.</strong> It finds semantically similar text. Keyword search (FTS5), radius search (latitude and longitude ranges) and date filters stay in D1. Vectorize is an optional extra on top.</li>
+            <li><strong>Durable Objects are optional.</strong> Cloudflare describes them as the tool for global coordination and strongly consistent per-object state. Ogood's MVP can do without them.</li>
+            <li><strong>Queues, not KV, for delivery.</strong> Cloudflare's guide says to use Queues when each message is a unit of work to be completed, retried and tracked individually — which is exactly a federation delivery.</li>
+            <li><strong>Hyperdrive only matters</strong> if you later want an external PostgreSQL or MySQL database. It is not part of this design.</li>
+        </ul>
+
+        <h2>Domain and routing</h2>
+        <p>One Worker answers on the apex, <code>ogood.network</code>, over normal HTTPS on port 443. ActivityPub is ordinary HTTP with JSON-LD bodies, so there is no separate port, no protocol upgrade and no mandatory subdomain. A media subdomain for R2 can be added later if useful.</p>
+
+        <h3>Endpoints</h3>
+        <ul class="endpoint-list">
+            <li><code>/.well-known/webfinger</code> — resolves handles such as <code>acct:provider-slug@ogood.network</code> to actor URLs</li>
+            <li><code>/.well-known/nodeinfo</code> + NodeInfo document — lets other servers identify the software</li>
+            <li>Instance actor (Application type), e.g. <code>/actor</code> — signs fetches made by Ogood itself</li>
+            <li>Provider actors (Organization type), e.g. <code>/providers/{slug}</code> — each with inbox, outbox and followers collections</li>
+            <li>Shared inbox at <code>/inbox</code> — remote servers deliver once per server, not once per follower</li>
+            <li>Opportunity objects, e.g. <code>/opportunities/{id}</code>, and dated sessions, e.g. <code>/opportunities/{id}/sessions/{session-id}</code></li>
+        </ul>
+
+        <h3>Content negotiation</h3>
+        <p>The same URL returns JSON-LD when the request's <code>Accept</code> header asks for <code>application/activity+json</code> or <code>application/ld+json</code> with the ActivityStreams profile, and HTML otherwise. Send <code>Vary: Accept</code> so caches keep the two apart, and include a <code>link rel="alternate"</code> to the JSON form in each HTML page.</p>
+
+        <h2>Custom Worker, not Mastodon hosting</h2>
+        <p>Ogood is a purpose-built ActivityPub service. It does not host Mastodon and does not need Mastodon's client API. Mastodon itself expects Rails, PostgreSQL, Redis and background workers on servers. Cloudflare's own Mastodon-compatible experiment on Workers, Wildebeest, is archived and no longer maintained, so it is not a base to build on.</p>
+        <p>The <strong>Fedify</strong> framework has a Cloudflare Workers package (<code>@fedify/cfworkers</code>) that handles WebFinger, HTTP signatures and delivery, using KV and Queues. It needs the Workers Node.js compatibility flag. Worth evaluating before hand-rolling signatures.</p>
+
+        <h2>Data model in D1</h2>
+
+        <h3>Core tables</h3>
+        <ul>
+            <li><strong>providers</strong> — id, slug, display name, website, status (provisional, claimed, verified), source kind (scraped, adapter, federated), canonical actor URI once the provider runs its own server, claim and consent notes</li>
+            <li><strong>provider_sources</strong> — where each provider's data comes from, last fetch time, ETag and content hash</li>
+            <li><strong>opportunities</strong> — id, provider, authoritative source URI, title, description, publish start and end, status, raw source JSON, content hash, first seen, last seen, updated</li>
+            <li><strong>roles</strong> — per opportunity, mirroring the standard's Role (commitment, apply link, age limits, remote participation, skills, requirements)</li>
+            <li><strong>sessions</strong> — id, opportunity, start and end in UTC, original time zone, recurring weekly slot when only that is known, location, status (scheduled, cancelled, postponed, completed), permanent URL</li>
+            <li><strong>locations</strong> — name, free-text address, latitude, longitude, an indexed grid or geohash column for radius search, optional WKT geometry, remote flag</li>
+            <li><strong>causes, skills, requirements</strong> — join tables to the standard's taxonomies</li>
+            <li><strong>media</strong> — R2 object key, owner, session, consent flags</li>
+            <li><strong>checkins and attestations</strong> — who, which session, when, how verified</li>
+            <li><strong>claims</strong> (later) — session, volunteer actor, provider actor, claim JSON, each party's signature, status</li>
+        </ul>
+
+        <h3>Federation tables</h3>
+        <ul>
+            <li><strong>remote_objects</strong> — cached remote actors and objects by URI, with raw JSON and fetch time</li>
+            <li><strong>inbox_activities</strong> — activity ID as a unique key, actor, received time, processing status. This is what makes inbound processing idempotent</li>
+            <li><strong>outbox_activities</strong> — every activity Ogood publishes, with its JSON</li>
+            <li><strong>deliveries</strong> — one row per activity per target inbox: status (pending, sent, failed, dead), attempts, next attempt time, last error</li>
+            <li><strong>followers</strong> — actor followed, follower URI, inbox, shared inbox</li>
+            <li><strong>actor_keys</strong> — public keys in D1. Private keys in Workers secrets, or encrypted in D1 with a key held as a secret</li>
+        </ul>
+
+        <p>Past versus upcoming is derived from each session's end time and status. Nothing is deleted: a past session keeps its URL, photos and attestations; a cancelled session keeps its URL with status <code>cancelled</code> and is announced to followers as an <code>Update</code>, not a <code>Delete</code>.</p>
+
+        <h2>Fit with the Volunteering Data Standard</h2>
+        <p>What the Volunteering and Social Action Ontology at <a href="https://standard.volunteeringdata.io/ontology">volunteeringdata.io</a> actually defines:</p>
+        <ul>
+            <li><strong>Organisation</strong> — name, description, website, image, causes, charity registrations, activities</li>
+            <li><strong>Activity</strong> — title, description, image, publishStart, publishEnd, organisation, roles, sessions, emergency flag</li>
+            <li><strong>Role</strong> — title, description, commitment, apply link, remote participation, minimum and maximum age, accessibility, requirements, rewards, skills</li>
+            <li><strong>Session</strong> — a time and place for an activity. The standard notes that sessions usually have no ID of their own, because they are embedded in the activity</li>
+            <li><strong>Location</strong> — name, free-text address, latitude, longitude, and a GeoSPARQL geometry (e.g. a council boundary as WKT)</li>
+            <li><strong>Time</strong> — modelled with OWL Time. The standard predefines weekly slots such as MondayMorning (6 AM to 12 PM), MondayAfternoon (12 PM to 6 PM) and MondayEvening (6 PM to midnight), and recommends reusing them. Custom times use hasBeginning and hasEnd</li>
+        </ul>
+
+        <h3>Gaps for Ogood</h3>
+        <ul>
+            <li>The examples describe recurring weekly availability, not one-off dated events. Ogood needs concrete start and end date-times for sessions.</li>
+            <li>There is no status property for cancelled or postponed sessions.</li>
+            <li>Sessions need their own stable IDs, because Ogood gives every event a permanent link with photos and check-ins.</li>
+            <li>Check-ins, attestations and completion claims are outside the standard.</li>
+        </ul>
+
+        <div class="callout">
+            <p><strong>Recommendation:</strong> use the standard's Organisation, Activity, Role, Location and taxonomies as the backbone, and add a small Ogood extension for dated sessions, session IDs and status. For fediverse compatibility, also publish each session as an ActivityStreams Event with <code>startTime</code>, <code>endTime</code> and a Place location, alongside the standard's context. Raise the dated-session and status gaps in the standard's GitHub discussions.</p>
+        </div>
+
+        <h2>Federation pipeline</h2>
+
+        <h3>Outbound</h3>
+        <ol>
+            <li>A catalog change, the outbox activity and its delivery rows are written together in one D1 batch.</li>
+            <li>Each delivery ID goes onto a Queue as a small message. The database row is the record; the queue is only the mail truck.</li>
+            <li>The consumer signs the request (HTTP Signatures; support the draft-cavage scheme Mastodon uses and plan for RFC 9421) and POSTs to the target inbox, then updates the delivery row.</li>
+            <li>Failures retry with backoff, and the next attempt time is written to the row.</li>
+            <li>A Cron Trigger sweeper re-enqueues any delivery still pending past its next attempt time. This covers messages that expire from the queue: retention is 24 hours on Workers Free and 4 to 14 days on Workers Paid. After a set number of days, a delivery is marked dead.</li>
+        </ol>
+
+        <h3>Inbound</h3>
+        <ol>
+            <li>Verify the HTTP signature against the sender's public key (fetched, then cached). Reject unsigned or invalid requests.</li>
+            <li>Insert the activity ID into <code>inbox_activities</code>. A duplicate ID is acknowledged and dropped.</li>
+            <li>Return <code>202 Accepted</code> and process from a Queue.</li>
+            <li>Handlers are idempotent: upserts keyed by object URI, and an Update older than the stored version is ignored.</li>
+        </ol>
+
+        <h3>Imports and adapters</h3>
+        <ul>
+            <li><strong>Scrapers</strong> run on Cron Triggers, put one job per source on a Queue, normalise to the standard and upsert. Compare content hashes first so unchanged records cost no writes.</li>
+            <li><strong>Push adapters:</strong> providers call a signed webhook (HMAC per provider).</li>
+            <li><strong>Pull adapters:</strong> Ogood polls a normalised feed with ETag or If-Modified-Since.</li>
+        </ul>
+
+        <h2>Trust, privacy and security</h2>
+        <ul>
+            <li><strong>Never impersonate a provider.</strong> Scraped providers appear as Ogood listings, clearly labelled "listed by Ogood from a public source", with a link to the original. They do not post as if the provider were speaking.</li>
+            <li><strong>Permission:</strong> list only public information, respect site terms and robots rules, honour takedown requests quickly, and offer a claim flow that turns a provisional listing into a verified one.</li>
+            <li><strong>Personal data:</strong> do not scrape volunteers' names or contact details. Photos and check-ins need consent, and location metadata should be stripped from uploaded photos.</li>
+            <li><strong>Remote fetches:</strong> limit response sizes, allow only HTTPS, and validate hosts before fetching.</li>
+            <li><strong>Rate limiting</strong> per remote host, using a Durable Object if needed.</li>
+            <li><strong>Signed claims</strong> prove who asserted something, not that it happened. Show them as "confirmed by both parties", never as proof.</li>
+            <li><strong>Migration:</strong> when a provider moves to its own server, link the accounts (alsoKnownAs and a Move activity), redirect Ogood's old URLs, and rebuild the catalog from the provider's outbox.</li>
+        </ul>
+
+        <h2>Graph or relational</h2>
+        <p>Cloudflare has no graph database. Its storage guide lists Workers KV, R2, Durable Objects, D1, Queues, K2, Hyperdrive, Basin Pipelines, Analytics Engine and Vectorize, and none of them is a graph store. A graph database would mean an external hosted service called over HTTP from the Worker. Hyperdrive only accelerates PostgreSQL and MySQL.</p>
+
+        <p><strong>Recommendation: stay relational in D1.</strong> Graph is not automatically better for this data:</p>
+        <ul>
+            <li><strong>The queries are shallow.</strong> Most of Ogood's reads are one or two hops with filters: opportunities near here, this month, from this provider. Indexed SQL is very good at this.</li>
+            <li><strong>The graph already lives in the identifiers.</strong> The data is linked data: every provider, opportunity and session is a URI. That gives you a graph without needing a graph engine.</li>
+            <li><strong>Deeper walks are still possible.</strong> SQLite supports recursive queries (<code>WITH RECURSIVE</code>), which cover moderate traversals such as provider networks or chains of attestations.</li>
+            <li><strong>A second database adds cost.</strong> It means another vendor outside Cloudflare, another bill and a sync job to keep in step.</li>
+        </ul>
+        <p><strong>When a graph layer would earn its place:</strong> multi-hop trust and reputation across volunteers, providers and attestations; "people who volunteered here also volunteered at" recommendations; or community detection across the network. The path there is cheap: keep an edges table in D1 (subject, predicate, object) as you go, and if those queries become central, project it into a graph or RDF store as a derived read model. Because the standard is RDF, a triple-store export is a natural fit.</p>
+
+        <h2>Free plan or paid</h2>
+        <p>Current allowances from Cloudflare's documentation:</p>
+        <table>
+            <thead>
+                <tr><th>Product</th><th>Workers Free</th><th>Workers Paid ($5/mo min)</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Workers</td><td>100K req/day, 10 ms CPU/invocation</td><td>10M req/mo included, CPU up to 5 min (default 30 s)</td></tr>
+                <tr><td>D1</td><td>5M rows read/day, 100K rows written/day, 5 GB total, 500 MB/db, 10 databases</td><td>25B reads and 50M writes/mo included, 10 GB/db</td></tr>
+                <tr><td>Queues</td><td>10K operations/day, 24-hour retention</td><td>1M operations/mo included, then $0.40/million, retention 4 days (up to 14)</td></tr>
+                <tr><td>Durable Objects</td><td>SQLite-backed only, 100K req/day, 13K GB-s/day</td><td>1M req/mo and 400K GB-s/mo included</td></tr>
+                <tr><td>R2</td><td>10 GB-month storage, 1M writes and 10M reads/mo, free egress</td><td>Same free tier, then usage pricing</td></tr>
+                <tr><td>Vectorize</td><td>30M queried dimensions/mo</td><td>50M queried dimensions/mo included</td></tr>
+            </tbody>
+        </table>
+
+        <div class="callout">
+            <p><strong>Verdict:</strong> a prototype fits on Workers Free. Every core product in this design is available there. The limits that would bite first:</p>
+        </div>
+        <ul>
+            <li><strong>Queue operations:</strong> Queues counts a write, a read and a delete for each message, so 10,000 operations a day is roughly 3,300 messages. One update fanned out to 500 inboxes is 500 messages; shared inboxes reduce this.</li>
+            <li><strong>CPU time:</strong> 10 ms of CPU per invocation may be tight for signing, signature verification and JSON-LD handling. Measure it early.</li>
+            <li><strong>D1 writes:</strong> scrapers can burn through 100,000 rows written a day unless unchanged records are skipped by content hash.</li>
+            <li><strong>Queue retention:</strong> 24 hours on Free makes the cron sweeper essential, not optional.</li>
+        </ul>
+        <p>Move to the $5 plan when real federation fan-out starts.</p>
+
+        <h2>Build order</h2>
+        <ol>
+            <li><strong>Worker on ogood.network</strong> serving the website and a read-only catalog from D1, with scraped imports, FTS5 keyword search, location search and date filters.</li>
+            <li><strong>ActivityPub read side:</strong> WebFinger, NodeInfo, the instance actor, labelled provisional provider actors, opportunity and session objects with content negotiation, and outboxes.</li>
+            <li><strong>Follows, the delivery ledger,</strong> the Queue consumer and the cron sweeper.</li>
+            <li><strong>R2 media, check-ins and attestations.</strong></li>
+            <li><strong>Provider adapters</strong> (push and pull) and the claim flow.</li>
+            <li><strong>Later:</strong> provider-run servers and migration, two-party signed completion claims, Vectorize semantic search, and a graph projection if needed.</li>
+        </ol>
+
+        <h2>Open decisions</h2>
+        <ul>
+            <li>Which Cloudflare account, project or AI agent should receive this handover.</li>
+            <li>Fedify or hand-rolled ActivityPub.</li>
+            <li>Which HTTP signature schemes to accept and send.</li>
+            <li>How Ogood's session IDs and status extension relate to the standard, and whether to propose them upstream.</li>
+            <li>Permission policy and wording for scraped provider listings.</li>
+        </ul>
+
+    </div>
+</section>
+
+<footer>
+    <div class="container">
+        © 2026 Ogood · Open source, open network for good · <a href="/">ogood.network</a>
+    </div>
+</footer>
+
+</body>
+</html>
