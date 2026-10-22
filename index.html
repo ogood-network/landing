@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ogood — The Volunteer Network Federation Protocol</title>
+    <meta name="description" content="Ogood is an open federation protocol for volunteer networks — built on the Volunteering Data Standard, ActivityPub, and mutual aid matching.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%23f97316'/><path d='M30 55 L45 70 L72 35' stroke='white' stroke-width='8' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+    <style>
+        :root {
+            --orange: #f97316;
+            --orange-dark: #ea580c;
+            --orange-light: #fed7aa;
+            --slate: #0f172a;
+            --slate-light: #334155;
+            --gray: #64748b;
+            --gray-light: #f1f5f9;
+            --white: #ffffff;
+            --green: #22c55e;
+            --blue: #3b82f6;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: var(--slate); line-height: 1.6; background: var(--white); overflow-x: hidden; }
+        .container { max-width: 1140px; margin: 0 auto; padding: 0 24px; }
+        nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(0, 0, 0, 0.06); transition: box-shadow 0.3s; }
+        nav.scrolled { box-shadow: 0 1px 12px rgba(0,0,0,0.08); }
+        .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+        .logo { display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 800; color: var(--slate); text-decoration: none; }
+        .logo-mark { width: 36px; height: 36px; border-radius: 50%; background: var(--orange); display: flex; align-items: center; justify-content: center; }
+        .logo-mark svg { width: 22px; height: 22px; }
+        .nav-links { display: flex; align-items: center; gap: 32px; }
+        .nav-links a { text-decoration: none; color: var(--slate-light); font-size: 15px; font-weight: 500; transition: color 0.2s; }
+        .nav-links a:hover { color: var(--orange); }
+        .nav-cta { background: var(--slate); color: var(--white) !important; padding: 8px 20px; border-radius: 8px; font-weight: 600; transition: background 0.2s; }
+        .nav-cta:hover { background: var(--orange) !important; color: var(--white) !important; }
+        @media (max-width: 768px) { .nav-links a:not(.nav-cta) { display: none; } }
+        .hero { padding: 140px 0 80px; text-align: center; background: linear-gradient(180deg, #fff7ed 0%, #ffffff 100%); position: relative; }
+        .hero-badge { display: inline-flex; align-items: center; gap: 8px; background: var(--orange-light); color: var(--orange-dark); padding: 6px 16px; border-radius: 100px; font-size: 14px; font-weight: 600; margin-bottom: 24px; }
+        .hero-badge::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--orange); animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .hero h1 { font-size: clamp(36px, 5.5vw, 64px); font-weight: 800; line-height: 1.1; letter-spacing: -0.03em; margin-bottom: 24px; max-width: 800px; margin-left: auto; margin-right: auto; }
+        .hero h1 .highlight { color: var(--orange); }
+        .hero p { font-size: clamp(17px, 2vw, 21px); color: var(--slate-light); max-width: 640px; margin: 0 auto 40px; }
+        .hero-cta { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+        .btn { display: inline-flex; align-items: center; gap: 8px; padding: 14px 28px; border-radius: 10px; font-size: 16px; font-weight: 600; text-decoration: none; transition: all 0.2s; border: none; cursor: pointer; }
+        .btn-primary { background: var(--orange); color: var(--white); }
+        .btn-primary:hover { background: var(--orange-dark); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(249,115,22,0.3); }
+        .btn-secondary { background: var(--white); color: var(--slate); border: 1.5px solid #e2e8f0; }
+        .btn-secondary:hover { border-color: var(--slate); transform: translateY(-2px); }
+        .analogy { padding: 60px 0; }
+        .analogy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 40px; }
+        @media (max-width: 768px) { .analogy-grid { grid-template-columns: 1fr; } }
+        .analogy-card { text-align: center; padding: 36px 28px; border-radius: 16px; background: var(--gray-light); transition: transform 0.2s, box-shadow 0.2s; }
+        .analogy-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,0.08); }
+        .analogy-icon { width: 56px; height: 56px; margin: 0 auto 20px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 28px; }
+        .analogy-card h3 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+        .analogy-card p { color: var(--gray); font-size: 15px; }
+        .section-title { text-align: center; font-size: clamp(28px, 4vw, 40px); font-weight: 800; letter-spacing: -0.02em; margin-bottom: 12px; }
+        .section-sub { text-align: center; color: var(--gray); font-size: 18px; max-width: 600px; margin: 0 auto; }
+        .how { padding: 80px 0; background: var(--slate); color: var(--white); }
+        .how .section-title { color: var(--white); }
+        .how .section-sub { color: #94a3b8; }
+        .how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; margin-top: 56px; }
+        @media (max-width: 768px) { .how-grid { grid-template-columns: 1fr; } }
+        .how-step-num { width: 48px; height: 48px; border-radius: 12px; background: var(--orange); color: var(--white); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; margin-bottom: 20px; }
+        .how-step h3 { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
+        .how-step p { color: #94a3b8; font-size: 15px; line-height: 1.7; }
+        .features { padding: 80px 0; }
+        .features-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-top: 48px; }
+        @media (max-width: 768px) { .features-grid { grid-template-columns: 1fr; } }
+        .feature { padding: 32px; border-radius: 16px; border: 1.5px solid #e2e8f0; transition: all 0.2s; }
+        .feature:hover { border-color: var(--orange); box-shadow: 0 8px 24px rgba(249,115,22,0.1); }
+        .feature-icon { width: 44px; height: 44px; border-radius: 10px; background: var(--orange-light); display: flex; align-items: center; justify-content: center; margin-bottom: 16px; font-size: 22px; }
+        .feature h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+        .feature p { color: var(--gray); font-size: 15px; }
+        .protocol { padding: 80px 0; background: var(--gray-light); }
+        .protocol-inner { max-width: 800px; margin: 0 auto; }
+        .protocol-code { background: var(--slate); border-radius: 16px; padding: 32px; margin-top: 32px; overflow-x: auto; }
+        .protocol-code pre { color: #e2e8f0; font-family: 'SF Mono', Monaco, Consolas, monospace; font-size: 14px; line-height: 1.8; }
+        .protocol-code .key { color: var(--orange); }
+        .protocol-code .str { color: var(--green); }
+        .protocol-code .comment { color: #64748b; }
+        .cta { padding: 80px 0; text-align: center; background: linear-gradient(135deg, var(--orange) 0%, var(--orange-dark) 100%); color: var(--white); }
+        .cta h2 { font-size: clamp(28px, 4vw, 40px); font-weight: 800; margin-bottom: 16px; }
+        .cta p { font-size: 18px; opacity: 0.9; margin-bottom: 32px; }
+        .cta .btn { background: var(--white); color: var(--orange-dark); }
+        .cta .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+        footer { padding: 48px 0; background: var(--slate); color: #94a3b8; }
+        .footer-inner { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+        .footer-links { display: flex; gap: 24px; }
+        .footer-links a { color: #94a3b8; text-decoration: none; font-size: 14px; transition: color 0.2s; }
+        .footer-links a:hover { color: var(--orange); }
+        .footer-copy { font-size: 14px; }
+    </style>
+</head>
+<body>
+<nav id="nav">
+    <div class="container nav-inner">
+        <a href="#" class="logo">
+            <span class="logo-mark"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 13l4 4L19 7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            Ogood <span style="font-size: 12px; font-weight: 500; color: var(--gray); margin-left: 4px;">open network for good</span>
+        </a>
+        <div class="nav-links">
+            <a href="#what">What is Ogood</a>
+            <a href="#how">How it works</a>
+            <a href="#features">Features</a>
+            <a href="#protocol">Protocol</a>
+            <a href="/architecture.html">Architecture</a>
+            <a href="#join" class="nav-cta">Connect</a>
+        </div>
+    </div>
+</nav>
+<section class="hero">
+    <div class="container">
+        <div class="hero-badge">Open source · Open network for good</div>
+        <h1>Oh good, <span class="highlight">volunteers are here!</span></h1>
+        <p>Ogood is an open-source, open network for good — a federation protocol that connects independent volunteer platforms so opportunities, skills, and people flow freely across organizations. Built on the Volunteering Data Standard, extended with ActivityPub federation and two-way matching.</p>
+        <div class="hero-cta">
+            <a href="#join" class="btn btn-primary">Connect →</a>
+            <a href="#what" class="btn btn-secondary">Learn more</a>
+        </div>
+    </div>
+</section>
+<section class="analogy" id="what">
+    <div class="container">
+        <h2 class="section-title">VolunteerMatch × ActivityPub × Tinder</h2>
+        <p class="section-sub">Three ideas, one open protocol — built on the Volunteering Data Standard ontology. <strong>Ogood</strong> = "Oh good, volunteers are here!" + open source, open network for good.</p>
+        <div class="analogy-grid">
+            <div class="analogy-card">
+                <div class="analogy-icon" style="background:#dbeafe;color:#3b82f6;">📋</div>
+                <h3>VolunteerMatch</h3>
+                <p>A marketplace of volunteer opportunities — but instead of one company owning the listings, every org hosts their own and they all interconnect.</p>
+            </div>
+            <div class="analogy-card">
+                <div class="analogy-icon" style="background:#dcfce7;color:#22c55e;">🔗</div>
+                <h3>ActivityPub</h3>
+                <p>Federation done right. Any Ogood-compatible server can talk to any other. No silos, no lock-in, no central authority. Your data stays yours.</p>
+            </div>
+            <div class="analogy-card">
+                <div class="analogy-icon" style="background:#fce7f3;color:#ec4899;">💛</div>
+                <h3>Tinder (for mutual aid)</h3>
+                <p>Two-way matching between volunteers and opportunities based on skills, interests, location, and availability. Swipe right on making a difference.</p>
+            </div>
+        </div>
+    </div>
+</section>
+<section class="features" style="background: var(--gray-light); padding-top: 80px;">
+    <div class="container">
+        <h2 class="section-title">Built on existing standards</h2>
+        <p class="section-sub">Ogood doesn't reinvent the wheel. It stands on the shoulders of established open standards.</p>
+        <div class="features-grid">
+            <div class="feature" style="background: var(--white);">
+                <div class="feature-icon">📐</div>
+                <h3>Volunteering Data Standard</h3>
+                <p>Ogood's data model extends the <a href="https://standard.volunteeringdata.io/ontology" style="color: var(--orange); font-weight: 600;">Volunteering Data Standard ontology</a> — the open vocabulary for describing volunteer opportunities, organizations, skills, and commitments. We add federation and matching, not a competing schema.</p>
+            </div>
+            <div class="feature" style="background: var(--white);">
+                <div class="feature-icon">📡</div>
+                <h3>ActivityPub (W3C)</h3>
+                <p>The same federation protocol that powers Mastodon and the Fediverse. Ogood extends ActivityPub with volunteer-specific activity types — ExpressInterest, MatchVolunteer, LogHours — so any compatible server can federate.</p>
+            </div>
+        </div>
+    </div>
+</section>
+<section class="how" id="how">
+    <div class="container">
+        <h2 class="section-title">How Ogood works</h2>
+        <p class="section-sub">A federated network where every node is sovereign but connected.</p>
+        <div class="how-grid">
+            <div class="how-step">
+                <div class="how-step-num">1</div>
+                <h3>Host your node</h3>
+                <p>Any nonprofit, mutual aid group, or community org runs an Ogood server. They publish their own volunteer opportunities and manage their own members — no central platform required.</p>
+            </div>
+            <div class="how-step">
+                <div class="how-step-num">2</div>
+                <h3>Federate freely</h3>
+                <p>Nodes discover and talk to each other using the Ogood protocol (built on ActivityPub). Opportunities posted on one server appear across the network. Volunteers follow orgs the way you follow accounts on Mastodon.</p>
+            </div>
+            <div class="how-step">
+                <div class="how-step-num">3</div>
+                <h3>Match intelligently</h3>
+                <p>Volunteers build a portable profile of skills, interests, and availability. The protocol enables two-way matching — orgs find the right people, and people find the right roles, across the entire federation.</p>
+            </div>
+        </div>
+    </div>
+</section>
+<section class="features" id="features">
+    <div class="container">
+        <h2 class="section-title">Built for the open web</h2>
+        <p class="section-sub">Protocol-first, community-governed, and designed to outlast any single company.</p>
+        <div class="features-grid">
+            <div class="feature"><div class="feature-icon">🌐</div><h3>Federated by design</h3><p>Built on ActivityPub. Every Ogood node is independent — no single point of failure, no central database of volunteers, no platform decay.</p></div>
+            <div class="feature"><div class="feature-icon">🤝</div><h3>Two-way matching</h3><p>Volunteers express interest in roles; organizations express interest in volunteers. The protocol surfaces mutual matches across the entire network.</p></div>
+            <div class="feature"><div class="feature-icon">🪪</div><h3>Portable volunteer identity</h3><p>Your volunteer profile, hours logged, and endorsements travel with you across nodes. Switch servers without losing your history.</p></div>
+            <div class="feature"><div class="feature-icon">🔓</div><h3>Open source &amp; open spec</h3><p>Extends the open Volunteering Data Standard ontology. The Ogood protocol spec is open. Reference implementations are open source. Anyone can build a client, a server, or a tool on top of it.</p></div>
+            <div class="feature"><div class="feature-icon">📍</div><h3>Geo-aware discovery</h3><p>Find volunteer opportunities near you — or remote ones — across every federated node. Location is first-class in the protocol.</p></div>
+            <div class="feature"><div class="feature-icon">⏱️</div><h3>Verified hours &amp; impact</h3><p>Cryptographically signed volunteer hours that are portable and verifiable across the federation. No more spreadsheets and PDFs.</p></div>
+        </div>
+    </div>
+</section>
+<section class="protocol" id="protocol">
+    <div class="container">
+        <div class="protocol-inner">
+            <h2 class="section-title">A peek at the protocol</h2>
+            <p class="section-sub">Ogood extends the Volunteering Data Standard ontology with ActivityPub federation and matching activities.</p>
+            <div class="protocol-code">
+<pre><span class="comment"># Ogood extends the Volunteering Data Standard ontology
+# with ActivityPub federation + matching activities</span>
+{
+  <span class="key">"@context"</span>: [
+    <span class="str">"https://www.w3.org/ns/activitystreams"</span>,
+    <span class="str">"https://standard.volunteeringdata.io/ontology"</span>,
+    <span class="str">"https://ogood.network/ns/v1"</span>
+  ],
+  <span class="key">"type"</span>: <span class="str">"VolunteerOpportunity"</span>,
+  <span class="key">"id"</span>: <span class="str">"https://mutualaid.example/op/repair-clinic-2026"</span>,
+  <span class="key">"name"</span>: <span class="str">"Community Bike Repair Clinic"</span>,
+  <span class="key">"summary"</span>: <span class="str">"Help neighbors fix their bikes. Tools provided."</span>,
+  <span class="key">"skillsRequired"</span>: [<span class="str">"bicycle-repair"</span>, <span class="str">"general-mechanics"</span>],
+  <span class="key">"location"</span>: {
+    <span class="key">"type"</span>: <span class="str">"Place"</span>,
+    <span class="key">"name"</span>: <span class="str">"Portland, OR"</span>,
+    <span class="key">"latitude"</span>: 45.5152,
+    <span class="key">"longitude"</span>: -122.6784
+  },
+  <span class="key">"timeCommitment"</span>: { <span class="key">"hours"</span>: 4, <span class="key">"schedule"</span>: <span class="str">"one-time"</span> },
+  <span class="key">"remoteFriendly"</span>: false,
+  <span class="key">"published"</span>: <span class="str">"2026-10-15T09:00:00Z"</span>
+}
+
+<span class="comment"># Ogood-only: two-way matching via ExpressInterest</span>
+{
+  <span class="key">"@context"</span>: [<span class="str">"https://www.w3.org/ns/activitystreams"</span>, <span class="str">"https://ogood.network/ns/v1"</span>],
+  <span class="key">"type"</span>: <span class="str">"ExpressInterest"</span>,
+  <span class="key">"actor"</span>: <span class="str">"https://volunteer.example/users/sam"</span>,
+  <span class="key">"object"</span>: <span class="str">"https://mutualaid.example/op/repair-clinic-2026"</span>,
+  <span class="key">"matchedSkills"</span>: [<span class="str">"bicycle-repair"</span>]
+}</pre>
+            </div>
+        </div>
+    </div>
+</section>
+<section class="protocol" style="padding: 80px 0; background: var(--gray-light);">
+    <div class="container">
+        <div class="protocol-inner" style="text-align: center;">
+            <h2 class="section-title">Proposed architecture on Cloudflare</h2>
+            <p class="section-sub">A detailed implementation handover for hosting Ogood federation nodes on Cloudflare Workers, D1, Queues, and R2 — built on the Volunteering Data Standard.</p>
+            <div style="margin-top: 32px;">
+                <a href="/architecture.html" class="btn btn-primary">Read the architecture →</a>
+            </div>
+        </div>
+    </div>
+</section>
+<section class="cta" id="join">
+    <div class="container">
+        <h2>Help build the volunteer commons</h2>
+        <p>Ogood is in early development. Connect to follow progress, test early builds, or contribute to the spec.</p>
+        <a href="mailto:connect@ogood.network?subject=Ogood%20Connect&amp;body=I'd%20like%20to%20connect%20with%20the%20Ogood%20project.%0A%0AMy%20name:%20%0A%0AI'm%20interested%20because:%20" class="btn">Connect →</a>
+    </div>
+</section>
+<footer>
+    <div class="container">
+        <div class="footer-inner">
+            <div class="footer-links">
+                <a href="#what">What is Ogood</a>
+                <a href="#how">How it works</a>
+                <a href="#features">Features</a>
+                <a href="#protocol">Protocol</a>
+                <a href="/architecture.html">Architecture</a>
+                <a href="mailto:connect@ogood.network">Contact</a>
+            </div>
+            <div class="footer-copy">© 2026 Ogood · Open source, open network for good · ogood.network</div>
+        </div>
+    </div>
+</footer>
+<script>
+    const nav = document.getElementById('nav');
+    window.addEventListener('scroll', () => { nav.classList.toggle('scrolled', window.scrollY > 10); });
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+        a.addEventListener('click', e => {
+            const target = document.querySelector(a.getAttribute('href'));
+            if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+        });
+    });
+</script>
+</body>
+</html>

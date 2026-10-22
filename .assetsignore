@@ -1,0 +1,9 @@
+# Keep repo-only files out of the public static assets (assets directory is ".")
+.git
+.gitignore
+.assetsignore
+.wrangler
+node_modules
+src
+wrangler.toml
+README.md
