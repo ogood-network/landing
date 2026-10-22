@@ -8,3 +8,5 @@ src
 wrangler.toml
 README.md
 .github
+package.json
+package-lock.json
